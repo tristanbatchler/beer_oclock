@@ -1,0 +1,35 @@
+package templates
+
+import (
+	"beer_oclock/internal/store"
+	"fmt"
+)
+
+templ Contacts(contacts []store.Contact) {
+	<div class="contacts">
+		<article class="rounded-xl border border-gray-700 bg-gray-800 p-4 mt-4">
+			<ul class="mt-4 space-y-2">
+				if len(contacts) <= 0 {
+					<p class="text-gray-300">No contacts found</p>
+				} else {
+					for _, contact := range contacts {
+						{{ cssSelector := fmt.Sprintf("contact-%d", contact.Id) }}
+						<li id={ cssSelector }>
+							<a
+								href="#"
+								class="block rounded-lg border border-gray-700 p-4 hover:border-orange-600"
+								hx-delete={ fmt.Sprintf("/contact/%d", contact.Id) }
+								hx-target={ "#" + cssSelector }
+							>
+								<strong class="font-medium text-white">{ contact.Name }</strong>
+								<p class="mt-1 text-xs font-medium text-gray-300">
+									{ contact.Email }
+								</p>
+							</a>
+						</li>
+					}
+				}
+			</ul>
+		</article>
+	</div>
+}

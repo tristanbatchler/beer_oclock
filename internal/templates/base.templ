@@ -1,0 +1,20 @@
+package templates
+
+templ header(title string) {
+	<head>
+		<title>{ title }</title>
+		<meta charset="UTF-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+		<link rel="stylesheet" href="static/css/style.css"/>
+		<script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
+	</head>
+}
+
+templ Layout(contents templ.Component, title string, activeLink string) {
+	@header(title)
+	<body>
+		<main>
+			@contents
+		</main>
+	</body>
+}

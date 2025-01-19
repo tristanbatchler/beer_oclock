@@ -1,0 +1,5 @@
+/tailwindcss
+/tmp/
+/internal/templates/*_templ.go
+/internal/templates/*_templ.txt
+/static/css/style.css

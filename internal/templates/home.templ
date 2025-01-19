@@ -1,0 +1,11 @@
+package templates
+
+import "beer_oclock/internal/store"
+
+templ Home(contacts []store.Contact) {
+	<section>
+		<h1>Beer O'clock</h1>
+		<p>Welcome to the home page</p>
+		@Contacts(contacts)
+	</section>
+}

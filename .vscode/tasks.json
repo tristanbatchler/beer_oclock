@@ -1,0 +1,46 @@
+// tasks.json:
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Air watch",
+            "type": "shell",
+            "command": "${env:HOME}/go/bin/air -c ${workspaceFolder}/.air.toml"
+        },
+        {
+            "label": "Tailwind watch",
+            "type": "shell",
+            "command": "${workspaceFolder}/tailwindcss -i ${workspaceFolder}/static/css/custom.css -o ${workspaceFolder}/static/css/style.css --watch"
+        },
+        {
+            "label": "Tailwind build",
+            "type": "shell",
+            "command": "${workspaceFolder}/tailwindcss -i ${workspaceFolder}/static/css/custom.css -o ${workspaceFolder}/static/css/style.css"
+        },
+        {
+            "label": "Templ watch",
+            "type": "shell",
+            "command": "${env:HOME}/go/bin/templ generate -watch"
+        },
+        {
+            "label": "Templ build",
+            "type": "shell",
+            "command": "${env:HOME}/go/bin/templ generate"
+        },
+        {
+            "label": "Watch all",
+            "dependsOn": [
+                "Air watch",
+                "Tailwind watch",
+                "Templ watch"
+            ]
+        },
+        {
+            "label": "Build all",
+            "dependsOn": [
+                "Tailwind build",
+                "Templ build"
+            ]
+        }
+    ]
+}

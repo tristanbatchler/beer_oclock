@@ -1,0 +1,15 @@
+/* Custom CSS rules go in here */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+[x-cloak] { display: none !important; }
+.smooth {
+  transition: all 1s ease-in;
+}
+
+body {
+  background: #111827;
+
+  @apply font-sans text-white;
+}
