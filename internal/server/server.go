@@ -160,12 +160,8 @@ func (s *server) deleteContactHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errMsg := fmt.Sprintf("Error when deleting contact: %v", err)
 		s.logger.Print(errMsg)
-		switch err.(type) {
-		case contacts.ErrContactNotFound:
-			http.Error(w, err.Error(), http.StatusNotFound)
-		default:
-			http.Error(w, errMsg, http.StatusInternalServerError)
-		}
+
+		http.Error(w, errMsg, http.StatusNoContent)
 		return
 	}
 

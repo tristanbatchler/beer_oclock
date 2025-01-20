@@ -23,7 +23,9 @@ templ Layout(contents templ.Component, title string, activeLink string) {
                 if (e.detail.xhr.status == 422) {
                     e.detail.shouldSwap = true;
                     e.detail.isError = false;
-                }
+                } else if (e.detail.xhr.status >= 204) {
+					e.detail.shouldSwap = true;
+				}
             });
         </script>
 	</body>
