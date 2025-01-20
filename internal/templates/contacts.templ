@@ -1,35 +1,98 @@
 package templates
 
 import (
-	"beer_oclock/internal/store"
+	"beer_oclock/internal/db"
 	"fmt"
 )
 
-templ Contacts(contacts []store.Contact) {
+templ maybeValidationError(errors map[string]string, id string) {
+	if msg, ok := errors[id]; ok {
+		<p class="text-red-500 text-xs mt-1">
+			{ msg }
+		</p>
+	}
+}
+
+templ AddContactForm(formData db.Contact, errors map[string]string) {
+	<form
+		hx-post="/contact"
+		hx-swap="outerHTML"
+		class="rounded-xl border border-gray-700 bg-gray-900 p-6 mt-6 shadow-lg"
+	>
+		<div class="flex flex-col space-y-4">
+			{{ id := "name" }}
+			<label for={ id } class="text-gray-300 font-semibold">Name</label>
+			<input
+				type="text"
+				name="name"
+				id={ id }
+				class="rounded-lg border border-gray-700 bg-white text-black p-3 focus:outline-none focus:ring-2 focus:ring-orange-600"
+				value={ formData.Name }
+			/>
+			@maybeValidationError(errors, id)
+		</div>
+		<div class="flex flex-col space-y-4 mt-4">
+			{{ id = "email" }}
+			<label for={ id } class="text-gray-300 font-semibold">Email</label>
+			<input
+				type="text"
+				name="email"
+				id={ id }
+				class="rounded-lg border border-gray-700 bg-white text-black p-3 focus:outline-none focus:ring-2 focus:ring-orange-600"
+				value={ formData.Email }
+			/>
+			@maybeValidationError(errors, id)
+		</div>
+		<button
+			type="submit"
+			class="rounded-lg border border-gray-700 p-3 bg-orange-600 text-white mt-6 hover:bg-orange-700 transition duration-300"
+		>
+			Add Contact
+		</button>
+	</form>
+}
+
+templ NoContacts() {
+	<div id="no-contacts" class="text-gray-300 text-center">
+		<p>No contacts found</p>
+	</div>
+}
+
+templ Contacts(contacts []db.Contact) {
 	<div class="contacts">
-		<article class="rounded-xl border border-gray-700 bg-gray-800 p-4 mt-4">
-			<ul class="mt-4 space-y-2">
-				if len(contacts) <= 0 {
-					<p class="text-gray-300">No contacts found</p>
-				} else {
-					for _, contact := range contacts {
-						{{ cssSelector := fmt.Sprintf("contact-%d", contact.Id) }}
-						<li id={ cssSelector }>
-							<a
-								href="#"
-								class="block rounded-lg border border-gray-700 p-4 hover:border-orange-600"
-								hx-delete={ fmt.Sprintf("/contact/%d", contact.Id) }
-								hx-target={ "#" + cssSelector }
-							>
-								<strong class="font-medium text-white">{ contact.Name }</strong>
-								<p class="mt-1 text-xs font-medium text-gray-300">
-									{ contact.Email }
-								</p>
-							</a>
-						</li>
-					}
+		<article class="rounded-xl border border-gray-700 bg-gray-900 p-6 mt-6 shadow-lg">
+			<ul id="contacts-list" class="space-y-4">
+				for _, contact := range contacts {
+					@Contact(contact)
 				}
 			</ul>
+			if len(contacts) <= 0 {
+				@NoContacts()
+			}
 		</article>
 	</div>
+}
+
+templ Contact(contact db.Contact) {
+	{{ cssSelector := fmt.Sprintf("contact-%d", contact.ID) }}
+	<li id={ cssSelector } hx-swap="outerHTML">
+		<a
+			href="#"
+			class="block rounded-lg border border-gray-700 p-4 hover:border-orange-600 bg-gray-800 hover:bg-gray-700 transition duration-300"
+			hx-delete={ fmt.Sprintf("/contact/%d", contact.ID) }
+			hx-target={ "#" + cssSelector }
+		>
+			<strong class="font-medium text-white">{ contact.Name }</strong>
+			<p class="mt-1 text-xs font-medium text-gray-300">
+				{ contact.Email }
+			</p>
+		</a>
+	</li>
+}
+
+templ ContactToAppend(contact db.Contact) {
+	<div id="contacts-list" hx-swap-oob="beforeend">
+		@Contact(contact)
+	</div>
+	<div id="no-contacts" hx-swap-oob="delete"></div>
 }

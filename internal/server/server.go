@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
@@ -8,27 +9,24 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 
+	"beer_oclock/internal/db"
 	"beer_oclock/internal/store"
+	"beer_oclock/internal/store/contacts"
 	"beer_oclock/internal/templates"
 )
-
-type ContactStore interface {
-	AddContact(Contact store.Contact) error
-	GetContacts() ([]store.Contact, error)
-	DeleteContact(id int) error
-}
 
 type server struct {
 	logger     *log.Logger
 	port       int
 	httpServer *http.Server
-	contactDb  ContactStore
+	contactDb  *contacts.ContactStore
 }
 
 // Creat a new server instance with the given logger and port
-func NewServer(logger *log.Logger, port int, contactDb ContactStore) (*server, error) {
+func NewServer(logger *log.Logger, port int, contactDb *contacts.ContactStore) (*server, error) {
 	if logger == nil {
 		return nil, fmt.Errorf("logger is required")
 	}
@@ -53,6 +51,7 @@ func (s *server) Start() error {
 	router.Handle("GET /static/", http.StripPrefix("/static/", fileServer))
 
 	router.HandleFunc("GET /", s.defaultHandler)
+	router.HandleFunc("POST /contact", s.addContactHandler)
 	router.HandleFunc("DELETE /contact/{id}", s.deleteContactHandler)
 
 	// define server
@@ -82,7 +81,7 @@ func (s *server) Start() error {
 // GET /
 func (s *server) defaultHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	contacts, err := s.contactDb.GetContacts()
+	contacts, err := s.contactDb.GetContacts(r.Context())
 	if err != nil {
 		s.logger.Printf("Error when getting contacts: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -95,21 +94,95 @@ func (s *server) defaultHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// POST /contact
+func (s *server) addContactHandler(w http.ResponseWriter, r *http.Request) {
+	s.logger.Printf("Adding contact")
+	if err := r.ParseForm(); err != nil {
+		s.logger.Printf("Error when parsing form: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	formData := db.Contact{Name: r.FormValue("name"), Email: r.FormValue("email")}
+
+	validationErrors := make(map[string]string)
+	if formData.Name == "" {
+		validationErrors["name"] = "Name is required"
+	}
+	if formData.Email == "" {
+		validationErrors["email"] = "Email is required"
+	}
+	if !strings.Contains(formData.Email, "@") {
+		validationErrors["email"] = "Email is invalid"
+	}
+	if len(validationErrors) > 0 {
+		buf := bytes.Buffer{}
+		templates.AddContactForm(formData, validationErrors).Render(r.Context(), &buf)
+		http.Error(w, buf.String(), http.StatusUnprocessableEntity)
+		return
+	}
+
+	contact, err := s.contactDb.AddContact(r.Context(), db.AddContactParams{Name: formData.Name, Email: formData.Email})
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when adding contact: %v", err)
+		s.logger.Print(errMsg)
+
+		validationErrors := make(map[string]string)
+
+		switch err.(type) {
+		case store.ErrMissingField:
+			validationErrors[err.(store.ErrMissingField).Field] = "This field is required"
+		case contacts.ErrContactAlreadyExists:
+			validationErrors["email"] = "Contact with this email already exists"
+		default:
+			http.Error(w, errMsg, http.StatusInternalServerError)
+		}
+		buf := bytes.Buffer{}
+		templates.AddContactForm(formData, validationErrors).Render(r.Context(), &buf)
+		http.Error(w, buf.String(), http.StatusUnprocessableEntity)
+		return
+	}
+
+	templates.AddContactForm(db.Contact{}, nil).Render(r.Context(), w)
+	templates.ContactToAppend(contact).Render(r.Context(), w)
+}
+
 // DELETE /contact/{id}
 func (s *server) deleteContactHandler(w http.ResponseWriter, r *http.Request) {
 	s.logger.Printf("Deleting contact with id: %s", r.PathValue("id"))
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
-		s.logger.Printf("Error when converting id to int: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		errMsg := fmt.Sprintf("Error when converting id to int: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
 		return
 	}
-	err = s.contactDb.DeleteContact(id)
+	_, err = s.contactDb.DeleteContact(r.Context(), int64(id))
 	if err != nil {
-		s.logger.Printf("Error when deleting contact: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		errMsg := fmt.Sprintf("Error when deleting contact: %v", err)
+		s.logger.Print(errMsg)
+		switch err.(type) {
+		case contacts.ErrContactNotFound:
+			http.Error(w, err.Error(), http.StatusNotFound)
+		default:
+			http.Error(w, errMsg, http.StatusInternalServerError)
+		}
 		return
 	}
 
-	// Return nothing so the target of the delete request is replaced with nothing, i.e. removed
+	// Check if that was the last contact
+	numContacts, err := s.contactDb.CountContacts(r.Context())
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when counting contacts: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+
+	if numContacts == 0 {
+		// If we just deleted the last contact, render the no contacts template
+		templates.NoContacts().Render(r.Context(), w)
+	} else {
+		// Return nothing so the target of the delete request is replaced with nothing, i.e. removed
+		w.WriteHeader(http.StatusNoContent)
+	}
 }

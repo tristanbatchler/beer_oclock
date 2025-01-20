@@ -3,6 +3,11 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "Build sqlc",
+            "type": "shell",
+            "command": "${env:HOME}/go/bin/sqlc generate -f ${workspaceFolder}/internal/db/config/sqlc.yml"
+        },
+        {
             "label": "Air watch",
             "type": "shell",
             "command": "${env:HOME}/go/bin/air -c ${workspaceFolder}/.air.toml"
@@ -30,6 +35,7 @@
         {
             "label": "Watch all",
             "dependsOn": [
+                "Build sqlc",
                 "Air watch",
                 "Tailwind watch",
                 "Templ watch"
@@ -39,7 +45,8 @@
             "label": "Build all",
             "dependsOn": [
                 "Tailwind build",
-                "Templ build"
+                "Templ build",
+                "Build sqlc"
             ]
         }
     ]

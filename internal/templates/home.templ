@@ -1,11 +1,11 @@
 package templates
 
-import "beer_oclock/internal/store"
+import "beer_oclock/internal/db"
 
-templ Home(contacts []store.Contact) {
+templ Home(contacts []db.Contact) {
 	<section>
-		<h1>Beer O'clock</h1>
-		<p>Welcome to the home page</p>
+		<h1 class="text-3xl font-bold text-white text-center">Beer O'clock</h1>
+		@AddContactForm(db.Contact{}, nil)
 		@Contacts(contacts)
 	</section>
 }
