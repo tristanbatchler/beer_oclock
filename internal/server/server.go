@@ -78,12 +78,17 @@ func (s *server) Start() error {
 	// define middleware
 	loggingMiddleware := middleware.Logging
 	authMiddleware := middleware.Auth(s.sessionStore, s.userStore)
+	contentTypeMiddleware := middleware.ContentType
 
-	authLoggingMiddleware := middleware.Chain(authMiddleware, loggingMiddleware)
+	authLoggingMiddleware := middleware.Chain(contentTypeMiddleware, loggingMiddleware, authMiddleware)
 
 	// unprotected routes:
 	fileServer := http.FileServer(http.Dir("./static"))
 	router.Handle("GET /static/", http.StripPrefix("/static/", fileServer))
+
+	router.Handle("GET /favicon.ico", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./static/images/favicon/favicon.ico")
+	}))
 
 	router.Handle("GET /login", loggingMiddleware(http.HandlerFunc(s.loginFormHandler)))
 	router.Handle("POST /login", loggingMiddleware(http.HandlerFunc(s.loginHandler)))
@@ -159,7 +164,7 @@ func (s *server) loginFormHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	loginTemplate := templates.LoginForm(nil)
-	err := templates.Layout(loginTemplate, "Login", "/login").Render(r.Context(), w)
+	err := templates.Layout(loginTemplate, "Beer O'Clock", "/login").Render(r.Context(), w)
 	if err != nil {
 		s.logger.Printf("Error when rendering login form: %v", err)
 	}

@@ -33,6 +33,15 @@ func Auth(sessionStore SessionStore, userStore *users.UserStore) Middleware {
 func Logging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Request: %s %s", r.Method, r.URL.Path)
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// For injecting the content type header
+func ContentType(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		next.ServeHTTP(w, r)
 	})
 }

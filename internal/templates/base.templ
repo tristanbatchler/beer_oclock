@@ -5,6 +5,10 @@ templ header(title string) {
 		<title>{ title }</title>
 		<meta charset="UTF-8"/>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+		<link rel="apple-touch-icon" sizes="180x180" href="/static/images/favicon/apple-touch-icon.png"/>
+		<link rel="icon" type="image/png" sizes="32x32" href="/static/images/favicon/favicon-32x32.png"/>
+		<link rel="icon" type="image/png" sizes="16x16" href="/static/images/favicon/favicon-16x16.png"/>
+		<link rel="manifest" href="/static/images/favicon/site.webmanifest"/>
 		<link rel="stylesheet" href="static/css/style.css"/>
 		<script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
 		<script src="https://unpkg.com/htmx-ext-response-targets@2.0.0/response-targets.js"></script>
@@ -33,9 +37,6 @@ templ Layout(contents templ.Component, title string, activeLink string) {
                     e.detail.isError = false;
                 } else if (e.detail.xhr.status >= 204) {
 					e.detail.shouldSwap = true;
-				} else if (e.detail.xhr.status == 405) {
-					e.detail.shouldSwap = true;
-					e.detail.xhr.response = "<p class='text-red-500'>Method not allowed</p>";
 				}
             });
         </script>
