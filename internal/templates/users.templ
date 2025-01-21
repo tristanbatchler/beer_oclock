@@ -97,12 +97,13 @@ templ UsersList(users []db.User) {
 templ User(user db.User) {
 	{{ cssSelector := fmt.Sprintf("user-%d", user.ID) }}
 	{{ deleteResponseCssSelector := fmt.Sprintf("delete-response-%d", user.ID) }}
-	<li id={ cssSelector } hx-swap="outerHTML">
+	<li id={ cssSelector } hx-swap="outerHTML" hx-ext="response-targets">
 		<a
 			href="#"
 			class="block rounded-lg border border-gray-700 p-4 hover:border-orange-600 bg-gray-800 hover:bg-gray-700 transition duration-300"
 			hx-delete={ fmt.Sprintf("/user/%d", user.ID) }
-			hx-target-4={ "#" + deleteResponseCssSelector }
+			hx-target-error={ "#" + deleteResponseCssSelector }
+			hx-swap="innerHTML"
 		>
 			<div class="flex items-center">
 				<div>
@@ -115,8 +116,10 @@ templ User(user db.User) {
 						}
 					</p>
 				</div>
+				<div class="ml-auto">
+					<p id={ deleteResponseCssSelector } class="text-red-500 text-xs mt-1"></p>
+				</div>
 				<img id="spinner" src="/static/images/spinner.svg" class="htmx-indicator p-2 ml-auto filter invert"/>
-				<div id={ deleteResponseCssSelector }></div>
 			</div>
 		</a>
 	</li>
