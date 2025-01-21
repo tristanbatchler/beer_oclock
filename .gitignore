@@ -4,3 +4,4 @@
 /internal/templates/*_templ.txt
 /static/css/style.css
 db.sqlite
+.env

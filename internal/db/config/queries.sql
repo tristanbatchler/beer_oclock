@@ -1,22 +1,84 @@
--- name: AddContact :one
-INSERT INTO contacts (name, email) 
+/* === CONTACTS === */
+
+-- name: AddUser :one
+INSERT INTO users (username, password_hash) 
 VALUES (?, ?)
 RETURNING *;
 
--- name: GetContactById :one
+-- name: GetUserById :one
 SELECT * 
-FROM contacts
+FROM users
 WHERE id = ?;
 
--- name: GetContacts :many
+-- name: GetUserByUsername :one
 SELECT *
-FROM contacts;
+FROM users
+WHERE username = ?;
 
--- name: DeleteContact :one
-DELETE FROM contacts
+-- name: GetUsers :many
+SELECT *
+FROM users;
+
+-- name: DeleteUser :one
+DELETE FROM users
 WHERE id = ?
 RETURNING *;
 
--- name: CountContacts :one
+-- name: CountUsers :one
 SELECT COUNT(*)
-FROM contacts;
+FROM users;
+
+-- name: SetUserLastLogin :exec
+UPDATE users
+SET last_login = datetime()
+WHERE id = ?;
+
+/* === BREWERS === */
+
+-- name: AddBrewer :one
+INSERT INTO brewers (name, location)
+VALUES (?, ?)
+RETURNING *;
+
+-- name: GetBrewerById :one
+SELECT *
+FROM brewers
+WHERE id = ?;
+
+-- name: GetBrewers :many
+SELECT *
+FROM brewers;
+
+-- name: DeleteBrewer :one
+DELETE FROM brewers
+WHERE id = ?
+RETURNING *;
+
+-- name: CountBrewers :one
+SELECT COUNT(*)
+FROM brewers;
+
+/* === BEERS === */
+
+-- name: AddBeer :one
+INSERT INTO beers (name, brewer_id, style, abv)
+VALUES (?, ?, ?, ?)
+RETURNING *;
+
+-- name: GetBeerById :one
+SELECT *
+FROM beers
+WHERE id = ?;
+
+-- name: GetBeers :many
+SELECT *
+FROM beers;
+
+-- name: DeleteBeer :one
+DELETE FROM beers
+WHERE id = ?
+RETURNING *;
+
+-- name: CountBeers :one
+SELECT COUNT(*)
+FROM beers;

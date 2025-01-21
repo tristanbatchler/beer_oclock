@@ -4,8 +4,28 @@
 
 package db
 
-type Contact struct {
-	ID    int64
-	Name  string
-	Email string
+import (
+	"database/sql"
+)
+
+type Beer struct {
+	ID       int64
+	Name     string
+	BrewerID sql.NullInt64
+	Style    sql.NullString
+	Abv      float64
+}
+
+type Brewer struct {
+	ID       int64
+	Name     string
+	Location sql.NullString
+}
+
+type User struct {
+	ID           int64
+	Username     string
+	PasswordHash string
+	CreatedAt    sql.NullTime
+	LastLogin    sql.NullTime
 }

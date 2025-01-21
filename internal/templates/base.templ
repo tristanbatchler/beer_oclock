@@ -7,6 +7,7 @@ templ header(title string) {
 		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 		<link rel="stylesheet" href="static/css/style.css"/>
 		<script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
+		<script src="https://unpkg.com/htmx-ext-response-targets@2.0.0/response-targets.js"></script>
 	</head>
 }
 
@@ -17,14 +18,24 @@ templ Layout(contents templ.Component, title string, activeLink string) {
 			@contents
 		</main>
 		<script>
+			htmx.logger = function(elt, event, data) {
+				if(console) {
+					console.log(event, elt, data);
+				}
+			}
+		</script>
+		<script>
             htmx.on("htmx:beforeSwap", (e) => {
-                // Allow 422 responses to swap
+                // Allow these responses to swap
                 // We treat these as form validation errors
-                if (e.detail.xhr.status == 422) {
+                if (e.detail.xhr.status in [401, 409, 422]) {
                     e.detail.shouldSwap = true;
                     e.detail.isError = false;
                 } else if (e.detail.xhr.status >= 204) {
 					e.detail.shouldSwap = true;
+				} else if (e.detail.xhr.status == 405) {
+					e.detail.shouldSwap = true;
+					e.detail.xhr.response = "<p class='text-red-500'>Method not allowed</p>";
 				}
             });
         </script>

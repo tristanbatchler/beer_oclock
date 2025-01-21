@@ -1,0 +1,130 @@
+package templates
+
+import (
+	"beer_oclock/internal/db"
+	"fmt"
+)
+
+templ maybeValidationError(errors map[string]string, id string) {
+	if msg, ok := errors[id]; ok {
+		<p class="text-red-500 text-xs mt-1">
+			{ msg }
+		</p>
+	}
+}
+
+templ AddUserForm(formData db.User, errors map[string]string) {
+	<form
+		hx-post="/user"
+		hx-swap="outerHTML"
+		class="rounded-xl border border-gray-700 bg-gray-900 p-6 mt-6 shadow-lg"
+		id="add-user-form"
+	>
+		<div class="flex flex-col space-y-4">
+			{{ id := "username" }}
+			<label for={ id } class="text-gray-300 font-semibold">Username</label>
+			<input
+				type="text"
+				name={ id }
+				class="rounded-lg border border-gray-700 bg-white text-black p-3 focus:outline-none focus:ring-2 focus:ring-orange-600"
+				value={ formData.Username }
+				required
+			/>
+			@maybeValidationError(errors, id)
+		</div>
+		<div class="flex flex-col space-y-4 mt-4">
+			{{ id = "password" }}
+			<label for={ id } class="text-gray-300 font-semibold">Password</label>
+			<input
+				type="password"
+				id={ fmt.Sprintf("add-user-form-%s", id) }
+				name={ id }
+				class="rounded-lg border border-gray-700 bg-white text-black p-3 focus:outline-none focus:ring-2 focus:ring-orange-600"
+				required
+			/>
+			@maybeValidationError(errors, id)
+		</div>
+		<div class="flex flex-col space-y-4 mt-4">
+			{{ id = "confirm-password" }}
+			<label for={ id } class="text-gray-300 font-semibold">Confirm Password</label>
+			<input
+				type="password"
+				name={ id }
+				class="rounded-lg border border-gray-700 bg-white text-black p-3 focus:outline-none focus:ring-2 focus:ring-orange-600"
+				required
+				onkeyup="this.setCustomValidity('')"
+				hx-on:htmx:validation:validate="
+					if (this.value !== document.getElementById('add-user-form-password').value) { 
+						this.setCustomValidity('Passwords must match');
+						htmx.find(#add-user-form).reportValidity();
+					}"
+			/>
+			@maybeValidationError(errors, id)
+		</div>
+		<div class="flex items-center">
+			<button
+				type="submit"
+				class="rounded-lg border border-gray-700 p-3 bg-orange-600 text-white mt-6 hover:bg-orange-700 transition duration-300"
+			>
+				Add User
+			</button>
+			<img id="spinner" src="/static/images/spinner.svg" class="htmx-indicator p-2 ml-auto filter invert mt-6"/>
+		</div>
+	</form>
+}
+
+templ NoUsers() {
+	<div id="no-users" class="text-gray-300 text-center">
+		<p>No users found</p>
+	</div>
+}
+
+templ UsersList(users []db.User) {
+	<div class="users">
+		<article class="rounded-xl border border-gray-700 bg-gray-900 p-6 mt-6 shadow-lg">
+			<ul id="users-list" class="space-y-4">
+				for _, user := range users {
+					@User(user)
+				}
+			</ul>
+			if len(users) <= 0 {
+				@NoUsers()
+			}
+		</article>
+	</div>
+}
+
+templ User(user db.User) {
+	{{ cssSelector := fmt.Sprintf("user-%d", user.ID) }}
+	{{ deleteResponseCssSelector := fmt.Sprintf("delete-response-%d", user.ID) }}
+	<li id={ cssSelector } hx-swap="outerHTML">
+		<a
+			href="#"
+			class="block rounded-lg border border-gray-700 p-4 hover:border-orange-600 bg-gray-800 hover:bg-gray-700 transition duration-300"
+			hx-delete={ fmt.Sprintf("/user/%d", user.ID) }
+			hx-target-4={ "#" + deleteResponseCssSelector }
+		>
+			<div class="flex items-center">
+				<div>
+					<strong class="font-medium text-white">{ user.Username }</strong>
+					<p class="mt-1 text-xs font-medium text-gray-300">
+						if user.CreatedAt.Valid {
+							Created at { user.CreatedAt.Time.Format("2 Jan 2006") }
+						} else {
+							Unknown creation date
+						}
+					</p>
+				</div>
+				<img id="spinner" src="/static/images/spinner.svg" class="htmx-indicator p-2 ml-auto filter invert"/>
+				<div id={ deleteResponseCssSelector }></div>
+			</div>
+		</a>
+	</li>
+}
+
+templ UserToAppend(user db.User) {
+	<div id="users-list" hx-swap-oob="beforeend">
+		@User(user)
+	</div>
+	<div id="no-users" hx-swap-oob="delete"></div>
+}

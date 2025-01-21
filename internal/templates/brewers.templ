@@ -1,0 +1,100 @@
+package templates
+
+import (
+	"beer_oclock/internal/db"
+	"fmt"
+)
+
+templ AddBrewerForm(formData db.Brewer, errors map[string]string) {
+	<form
+		hx-post="/brewer"
+		hx-swap="outerHTML"
+		class="rounded-xl border border-gray-700 bg-gray-900 p-6 mt-6 shadow-lg"
+	>
+		<div class="flex flex-col space-y-4">
+			{{ id := "name" }}
+			<label for={ id } class="text-gray-300 font-semibold">Brewer</label>
+			<input
+				type="text"
+				name={ id }
+				class="rounded-lg border border-gray-700 bg-white text-black p-3 focus:outline-none focus:ring-2 focus:ring-orange-600"
+				value={ formData.Name }
+			/>
+			@maybeValidationError(errors, id)
+		</div>
+		<div class="flex flex-col space-y-4 mt-4">
+			{{ id = "location" }}
+			<label for={ id } class="text-gray-300 font-semibold">Location</label>
+			<input
+				type="text"
+				name={ id }
+				class="rounded-lg border border-gray-700 bg-white text-black p-3 focus:outline-none focus:ring-2 focus:ring-orange-600"
+				value={ formData.Location.String }
+			/>
+			@maybeValidationError(errors, id)
+		</div>
+		<div class="flex items-center">
+			<button
+				type="submit"
+				class="rounded-lg border border-gray-700 p-3 bg-orange-600 text-white mt-6 hover:bg-orange-700 transition duration-300"
+			>
+				Add Brewer
+			</button>
+			<img id="spinner" src="/static/images/spinner.svg" class="htmx-indicator p-2 ml-auto filter invert mt-6"/>
+		</div>
+	</form>
+}
+
+templ NoBrewers() {
+	<div id="no-brewers" class="text-gray-300 text-center">
+		<p>No brewers found</p>
+	</div>
+}
+
+templ BrewersList(brewers []db.Brewer) {
+	<div class="brewers">
+		<article class="rounded-xl border border-gray-700 bg-gray-900 p-6 mt-6 shadow-lg">
+			<ul id="brewers-list" class="space-y-4">
+				for _, brewer := range brewers {
+					@Brewer(brewer)
+				}
+			</ul>
+			if len(brewers) <= 0 {
+				@NoBrewers()
+			}
+		</article>
+	</div>
+}
+
+templ Brewer(brewer db.Brewer) {
+	{{ cssSelector := fmt.Sprintf("brewer-%d", brewer.ID) }}
+	<li id={ cssSelector } hx-swap="outerHTML">
+		<a
+			href="#"
+			class="block rounded-lg border border-gray-700 p-4 hover:border-orange-600 bg-gray-800 hover:bg-gray-700 transition duration-300"
+			hx-delete={ fmt.Sprintf("/brewer/%d", brewer.ID) }
+			hx-target={ "#" + cssSelector }
+		>
+			<div class="flex items-center">
+				<div>
+					<strong class="font-medium text-white">{ brewer.Name }</strong>
+					<p class="mt-1 text-xs font-medium text-gray-300">
+						if brewer.Location.Valid {
+							{ brewer.Location.String }
+						} else {
+							Unknown
+						}
+					</p>
+				</div>
+				<img id="spinner" src="/static/images/spinner.svg" class="htmx-indicator p-2 ml-auto filter invert"/>
+			</div>
+		</a>
+	</li>
+}
+
+templ BrewerToAppend(brewer db.Brewer) {
+	<div id="brewers-list" hx-swap-oob="beforeend">
+		@Brewer(brewer)
+	</div>
+	<div id="no-brewers" hx-swap-oob="delete"></div>
+}
