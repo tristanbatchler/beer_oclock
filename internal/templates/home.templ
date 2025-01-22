@@ -1,21 +1,26 @@
 package templates
 
-import "beer_oclock/internal/db"
-
-templ Home(users []db.User, brewers []db.Brewer) {
+templ Home() {
 	<section>
 		<div class="flex justify-center mt-6">
 			<img src="/static/images/logo.png" class="p-2"/>
 			<h1 class="text-3xl font-bold text-white mt-4">Beer O'Clock</h1>
 			<img src="/static/images/logo.png" class="p-2"/>
 		</div>
-		@AddBrewerForm(db.Brewer{}, nil)
-		@BrewersList(brewers)
-		<h2 class="text-2xl font-bold text-white mt-6">Users</h2>
-		@UsersList(users)
 	</section>
-	<!-- Logout button -->
-	<form action="/logout" method="post">
-		<button type="submit" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded mt-4">Logout</button>
-	</form>
+	<div class="flex justify-center mt-6 space-x-4">
+		<a href="/logout" class="rounded-lg bg-red-500 text-white p-2 mt-4">
+			Logout
+		</a>
+		<button hx-get="/brewer/add" hx-target="#main-content" class="rounded-lg bg-green-500 text-white p-2 mt-4">
+			Add Brewer
+		</button>
+		<button hx-get="/user/add" hx-target="#main-content" class="rounded-lg bg-green-500 text-white p-2 mt-4">
+			Add User
+		</button>
+		<button hx-get="/beer/add" hx-target="#main-content" class="rounded-lg bg-green-500 text-white p-2 mt-4">
+			Add Beer
+		</button>
+	</div>
+	<div id="main-content" class="mt-6"></div>
 }

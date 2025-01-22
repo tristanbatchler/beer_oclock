@@ -76,11 +76,9 @@ func (s *server) Start() error {
 	router := http.NewServeMux()
 
 	// define middleware
-	loggingMiddleware := middleware.Logging
 	authMiddleware := middleware.Auth(s.sessionStore, s.userStore)
-	contentTypeMiddleware := middleware.ContentType
-
-	authLoggingMiddleware := middleware.Chain(contentTypeMiddleware, loggingMiddleware, authMiddleware)
+	loggingMiddleware := middleware.Chain(middleware.ContentType, middleware.Logging)
+	authLoggingMiddleware := middleware.Chain(middleware.ContentType, middleware.Logging, authMiddleware)
 
 	// unprotected routes:
 	fileServer := http.FileServer(http.Dir("./static"))
@@ -94,12 +92,13 @@ func (s *server) Start() error {
 	router.Handle("POST /login", loggingMiddleware(http.HandlerFunc(s.loginHandler)))
 
 	// protected routes:
-	router.Handle("GET /", authLoggingMiddleware(http.HandlerFunc(s.defaultHandler)))
+	router.Handle("GET /", authLoggingMiddleware(http.HandlerFunc(s.homeHandler)))
 
 	router.Handle("GET /logout", authLoggingMiddleware(http.HandlerFunc(s.logoutHandler)))
 	router.Handle("POST /logout", authLoggingMiddleware(http.HandlerFunc(s.logoutHandler)))
 
 	router.Handle("POST /brewer", authLoggingMiddleware(http.HandlerFunc(s.addBrewerHandler)))
+	router.Handle("GET /brewer/add", authLoggingMiddleware(http.HandlerFunc(s.getBrewerFormHandler)))
 	router.Handle("DELETE /brewer/{id}", authLoggingMiddleware(http.HandlerFunc(s.deleteBrewerHandler)))
 
 	// define server
@@ -131,25 +130,11 @@ func (s *server) Start() error {
 }
 
 // GET /
-func (s *server) defaultHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) homeHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
-	users, err := s.userStore.GetUsers(r.Context())
-	if err != nil {
-		s.logger.Printf("Error when getting users: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	brewers, err := s.brewerStore.GetBrewers(r.Context())
-	if err != nil {
-		s.logger.Printf("Error when getting brewers: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	homeTemplate := templates.Home(users, brewers)
-	err = templates.Layout(homeTemplate, "Beer O'Clock", "/").Render(r.Context(), w)
+	homeTemplate := templates.Home()
+	err := templates.Layout(homeTemplate, "Beer O'Clock").Render(r.Context(), w)
 	if err != nil {
 		s.logger.Printf("Error when rendering home: %v", err)
 	}
@@ -164,7 +149,7 @@ func (s *server) loginFormHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	loginTemplate := templates.LoginForm(nil)
-	err := templates.Layout(loginTemplate, "Beer O'Clock", "/login").Render(r.Context(), w)
+	err := templates.Layout(loginTemplate, "Beer O'Clock").Render(r.Context(), w)
 	if err != nil {
 		s.logger.Printf("Error when rendering login form: %v", err)
 	}
@@ -175,8 +160,7 @@ func (s *server) logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	s.sessionStore.EraseCurrent(w, r)
 
-	// Redirect to login page
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 // POST /brewer
@@ -231,6 +215,11 @@ func (s *server) addBrewerHandler(w http.ResponseWriter, r *http.Request) {
 
 	templates.AddBrewerForm(db.Brewer{}, nil).Render(r.Context(), w)
 	templates.BrewerToAppend(brewer).Render(r.Context(), w)
+}
+
+// GET /brewer/add
+func (s *server) getBrewerFormHandler(w http.ResponseWriter, r *http.Request) {
+	templates.AddBrewerForm(db.Brewer{}, nil).Render(r.Context(), w)
 }
 
 // DELETE /brewer/{id}
