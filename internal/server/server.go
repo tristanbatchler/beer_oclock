@@ -100,6 +100,14 @@ func (s *server) Start() error {
 	router.Handle("POST /brewer", authLoggingMiddleware(http.HandlerFunc(s.addBrewerHandler)))
 	router.Handle("GET /brewer/add", authLoggingMiddleware(http.HandlerFunc(s.getBrewerFormHandler)))
 	router.Handle("DELETE /brewer/{id}", authLoggingMiddleware(http.HandlerFunc(s.deleteBrewerHandler)))
+	router.Handle("GET /brewers", authLoggingMiddleware(http.HandlerFunc(s.listBrewersHandler)))
+	router.Handle("GET /brewer/{id}", authLoggingMiddleware(http.HandlerFunc(s.getBrewerHandler)))
+
+	router.Handle("POST /user", authLoggingMiddleware(http.HandlerFunc(s.addUserHandler)))
+	router.Handle("GET /user/add", authLoggingMiddleware(http.HandlerFunc(s.getUserFormHandler)))
+	router.Handle("DELETE /user/{id}", authLoggingMiddleware(http.HandlerFunc(s.deleteUserHandler)))
+	router.Handle("GET /users", authLoggingMiddleware(http.HandlerFunc(s.listUsersHandler)))
+	router.Handle("GET /user/{id}", authLoggingMiddleware(http.HandlerFunc(s.getUserHandler)))
 
 	// define server
 	s.httpServer = &http.Server{
@@ -257,6 +265,161 @@ func (s *server) deleteBrewerHandler(w http.ResponseWriter, r *http.Request) {
 		// Return nothing so the target of the delete request is replaced with nothing, i.e. removed
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+// GET /brewers
+func (s *server) listBrewersHandler(w http.ResponseWriter, r *http.Request) {
+	brewers, err := s.brewerStore.GetBrewers(r.Context())
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when getting brewers: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+
+	templates.BrewersList(brewers).Render(r.Context(), w)
+}
+
+// GET /brewer/{id}
+func (s *server) getBrewerHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when converting id to int: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+
+	brewer, err := s.brewerStore.GetBrewer(r.Context(), int64(id))
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when getting brewer: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+
+	templates.Brewer(brewer).Render(r.Context(), w)
+}
+
+// POST /user
+func (s *server) addUserHandler(w http.ResponseWriter, r *http.Request) {
+	s.logger.Printf("Adding user")
+	if err := r.ParseForm(); err != nil {
+		s.logger.Printf("Error when parsing form: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	formUsername := r.FormValue("username")
+	formPassword := r.FormValue("password")
+	formConfirmPassword := r.FormValue("confirm-password")
+
+	validationErrors := make(map[string]string)
+	if formUsername == "" {
+		validationErrors["username"] = "Username is required"
+	}
+	if formPassword == "" {
+		validationErrors["password"] = "Password is required"
+	}
+	if formConfirmPassword == "" {
+		validationErrors["confirm-password"] = "Confirm password is required"
+	}
+	if formPassword != formConfirmPassword {
+		validationErrors["confirm-password"] = "Passwords do not match"
+	}
+	if len(validationErrors) > 0 {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		templates.AddUserForm(db.User{Username: formUsername}, validationErrors).Render(r.Context(), w)
+		return
+	}
+
+	// Hash the password
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(formPassword), bcrypt.DefaultCost)
+	if err != nil {
+		s.logger.Fatalf("Error when hashing password: %s", err)
+	}
+
+	// Add the user to the user store
+	s.userStore.AddUser(context.Background(), db.AddUserParams{
+		Username:     formUsername,
+		PasswordHash: string(passwordHash),
+	})
+
+	templates.AddUserForm(db.User{}, nil).Render(r.Context(), w)
+}
+
+// GET /user/add
+func (s *server) getUserFormHandler(w http.ResponseWriter, r *http.Request) {
+	templates.AddUserForm(db.User{}, nil).Render(r.Context(), w)
+}
+
+// DELETE /user/{id}
+func (s *server) deleteUserHandler(w http.ResponseWriter, r *http.Request) {
+	s.logger.Printf("Deleting user with id: %s", r.PathValue("id"))
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when converting id to int: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+	_, err = s.userStore.DeleteUser(r.Context(), int64(id))
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when deleting user: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+
+	// Check if that was the last user
+	numUsers, err := s.userStore.CountUsers(r.Context())
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when counting users: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+
+	if numUsers == 0 {
+		// If we just deleted the last user, render the no users template
+		templates.NoUsers().Render(r.Context(), w)
+	} else {
+		// Return nothing so the target of the delete request is replaced with nothing, i.e. removed
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// GET /users
+func (s *server) listUsersHandler(w http.ResponseWriter, r *http.Request) {
+	users, err := s.userStore.GetUsers(r.Context())
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when getting users: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+
+	templates.UsersList(users).Render(r.Context(), w)
+}
+
+// GET /user/{id}
+func (s *server) getUserHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when converting id to int: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+
+	user, err := s.userStore.GetUser(r.Context(), int64(id))
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when getting user: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+
+	templates.User(user).Render(r.Context(), w)
 }
 
 // POST /login

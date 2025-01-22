@@ -4,6 +4,7 @@ import (
 	"beer_oclock/internal/db"
 	"beer_oclock/internal/store"
 	"context"
+	"database/sql"
 	"log"
 
 	"modernc.org/sqlite"
@@ -41,6 +42,18 @@ func (bs *BrewerStore) AddBrewer(ctx context.Context, params db.AddBrewerParams)
 	}
 
 	bs.logger.Printf("brewer added: %v", brewer)
+	return brewer, nil
+}
+
+func (bs *BrewerStore) GetBrewer(ctx context.Context, id int64) (db.Brewer, error) {
+	brewer, err := bs.queries.GetBrewerById(ctx, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return db.Brewer{}, ErrBrewerNotFound{ID: id}
+		}
+		bs.logger.Printf("error getting brewer: %v", err)
+		return db.Brewer{}, err
+	}
 	return brewer, nil
 }
 

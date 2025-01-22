@@ -5,3 +5,4 @@
 /static/css/style.css
 db.sqlite
 .env
+nohup.out

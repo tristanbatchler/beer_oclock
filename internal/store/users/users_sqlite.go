@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"strings"
 
 	"modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
@@ -23,99 +24,115 @@ func NewUserStore(queries *db.Queries, logger *log.Logger) *UserStore {
 	}
 }
 
-func (cs *UserStore) AddUser(ctx context.Context, params db.AddUserParams) (db.User, error) {
+func (us *UserStore) AddUser(ctx context.Context, params db.AddUserParams) (db.User, error) {
 	zero := db.User{}
 
 	if params.Username == "" {
 		return zero, store.ErrMissingField{Field: "username"}
 	}
 
-	user, err := cs.queries.AddUser(ctx, params)
+	// Normalize username
+	params.Username = strings.ToLower(params.Username)
+
+	// Add the user to the database
+	user, err := us.queries.AddUser(ctx, params)
 	if err != nil {
 		if sqlErr, ok := err.(*sqlite.Error); ok {
 			if sqlErr.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE {
 				return zero, ErrUserAlreadyExists{Username: params.Username}
 			}
-			cs.logger.Printf("error adding user: %v, %v", err, sqlErr)
+			us.logger.Printf("error adding user: %v, %v", err, sqlErr)
 		}
-		cs.logger.Printf("error adding user: %v", err)
+		us.logger.Printf("error adding user: %v", err)
 		return zero, err
 	}
 
-	cs.logger.Printf("user added: %v", user)
+	us.logger.Printf("user added: %v", user)
 	return user, nil
 }
 
-func (cs *UserStore) GetUsers(ctx context.Context) ([]db.User, error) {
-	users, err := cs.queries.GetUsers(ctx)
+func (us *UserStore) GetUser(ctx context.Context, id int64) (db.User, error) {
+	user, err := us.queries.GetUserById(ctx, id)
 	if err != nil {
-		cs.logger.Printf("error getting users: %v", err)
+		if err == sql.ErrNoRows {
+			return db.User{}, ErrUserNotFound{ID: id}
+		}
+		us.logger.Printf("error getting brewer: %v", err)
+		return db.User{}, err
+	}
+	return user, nil
+}
+
+func (us *UserStore) GetUsers(ctx context.Context) ([]db.User, error) {
+	users, err := us.queries.GetUsers(ctx)
+	if err != nil {
+		us.logger.Printf("error getting users: %v", err)
 		return nil, err
 	}
 	return users, nil
 }
 
-func (cs *UserStore) GetUserById(ctx context.Context, id int64) (db.User, error) {
+func (us *UserStore) GetUserById(ctx context.Context, id int64) (db.User, error) {
 	zero := db.User{}
 
-	user, err := cs.queries.GetUserById(ctx, id)
+	user, err := us.queries.GetUserById(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return zero, ErrUserNotFound{ID: id}
 		}
-		cs.logger.Printf("error getting user by id: %v", err)
+		us.logger.Printf("error getting user by id: %v", err)
 		return zero, err
 	}
 
 	return user, nil
 }
 
-func (cs *UserStore) GetUserByUsername(ctx context.Context, username string) (db.User, error) {
+func (us *UserStore) GetUserByUsername(ctx context.Context, username string) (db.User, error) {
 	zero := db.User{}
 
-	user, err := cs.queries.GetUserByUsername(ctx, username)
+	user, err := us.queries.GetUserByUsername(ctx, username)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return zero, ErrUserNotFound{Username: username}
 		}
-		cs.logger.Printf("error getting user by username: %v", err)
+		us.logger.Printf("error getting user by username: %v", err)
 		return zero, err
 	}
 
 	return user, nil
 }
 
-func (cs *UserStore) DeleteUser(ctx context.Context, id int64) (db.User, error) {
+func (us *UserStore) DeleteUser(ctx context.Context, id int64) (db.User, error) {
 	zero := db.User{}
 
-	user, err := cs.queries.DeleteUser(ctx, id)
+	user, err := us.queries.DeleteUser(ctx, id)
 	if err != nil {
 		if sqlErr, ok := err.(*sqlite.Error); ok {
 			if sqlErr.Code() == sqlite3.SQLITE_CONSTRAINT_FOREIGNKEY {
 				return zero, ErrUserNotFound{ID: id}
 			}
 		}
-		cs.logger.Printf("error deleting user: %v", err)
+		us.logger.Printf("error deleting user: %v", err)
 		return zero, err
 	}
 
-	cs.logger.Printf("user deleted: %v", user)
+	us.logger.Printf("user deleted: %v", user)
 	return user, nil
 }
 
-func (cs *UserStore) CountUsers(ctx context.Context) (int64, error) {
-	count, err := cs.queries.CountUsers(ctx)
+func (us *UserStore) CountUsers(ctx context.Context) (int64, error) {
+	count, err := us.queries.CountUsers(ctx)
 	if err != nil {
-		cs.logger.Printf("error counting users: %v", err)
+		us.logger.Printf("error counting users: %v", err)
 		return 0, err
 	}
 	return count, nil
 }
 
-func (cs *UserStore) SetUserLastLogin(ctx context.Context, id int64) error {
-	err := cs.queries.SetUserLastLogin(ctx, id)
+func (us *UserStore) SetUserLastLogin(ctx context.Context, id int64) error {
+	err := us.queries.SetUserLastLogin(ctx, id)
 	if err != nil {
-		cs.logger.Printf("error setting user last login: %v", err)
+		us.logger.Printf("error setting user last login: %v", err)
 		return err
 	}
 	return nil
