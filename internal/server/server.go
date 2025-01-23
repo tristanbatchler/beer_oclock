@@ -21,9 +21,12 @@ import (
 	"beer_oclock/internal/store/users"
 	"beer_oclock/internal/templates"
 
+	"github.com/a-h/templ"
 	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
 )
+
+const AppName = "Beer O'clock"
 
 type server struct {
 	logger       *log.Logger
@@ -137,15 +140,43 @@ func (s *server) Start() error {
 	return nil
 }
 
+// A helper function to determine whether a request was made by HTMX, so we can use this to inform
+// whether the response should be a full layout page or just the partial content
+func isHtmxRequest(r *http.Request) bool {
+	return r.Header.Get("HX-Request") == "true"
+}
+
+// A helper function to respond with a template, either as a full page or just the partial content
+// depending on whether the request was made by HTMX and the HTML verb used (full pages only apply
+// to GET requests) the AppName to the title provided. If the template fails to render, a 500 error
+// is returned.
+func renderTemplate(w http.ResponseWriter, r *http.Request, t templ.Component, title ...string) {
+	// Return a partial response if the request was made by HTMX or if the request was not a GET request
+	if isHtmxRequest(r) || r.Method != http.MethodGet {
+		t.Render(r.Context(), w)
+		return
+	}
+
+	// Otherwise, format the title
+	if len(title) <= 0 {
+		title = append(title, AppName)
+	} else {
+		title[0] = fmt.Sprintf("%s ~ %s", title[0], AppName)
+	}
+
+	// and render the full page
+	err := templates.Layout(t, title[0]).Render(r.Context(), w)
+	if err != nil {
+		log.Printf("Error when rendering: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
 // GET /
 func (s *server) homeHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
-	homeTemplate := templates.Home()
-	err := templates.Layout(homeTemplate, "Beer O'Clock").Render(r.Context(), w)
-	if err != nil {
-		s.logger.Printf("Error when rendering home: %v", err)
-	}
+	renderTemplate(w, r, templates.Home(), "Home")
 }
 
 // GET /login
@@ -156,11 +187,7 @@ func (s *server) loginFormHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	loginTemplate := templates.LoginForm(nil)
-	err := templates.Layout(loginTemplate, "Beer O'Clock").Render(r.Context(), w)
-	if err != nil {
-		s.logger.Printf("Error when rendering login form: %v", err)
-	}
+	renderTemplate(w, r, templates.LoginForm(nil), "Login")
 }
 
 // GET or POST /logout
@@ -195,7 +222,7 @@ func (s *server) addBrewerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(validationErrors) > 0 {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		templates.AddBrewerForm(formData, validationErrors).Render(r.Context(), w)
+		renderTemplate(w, r, templates.AddBrewerForm(formData, validationErrors))
 		return
 	}
 
@@ -217,17 +244,17 @@ func (s *server) addBrewerHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, errMsg, http.StatusInternalServerError)
 			w.WriteHeader(http.StatusInternalServerError)
 		}
-		templates.AddBrewerForm(formData, validationErrors).Render(r.Context(), w)
+		renderTemplate(w, r, templates.AddBrewerForm(formData, validationErrors))
 		return
 	}
 
-	templates.AddBrewerForm(db.Brewer{}, nil).Render(r.Context(), w)
-	templates.BrewerToAppend(brewer).Render(r.Context(), w)
+	renderTemplate(w, r, templates.AddBrewerForm(db.Brewer{}, nil))
+	renderTemplate(w, r, templates.Brewer(brewer))
 }
 
 // GET /brewer/add
 func (s *server) getBrewerFormHandler(w http.ResponseWriter, r *http.Request) {
-	templates.AddBrewerForm(db.Brewer{}, nil).Render(r.Context(), w)
+	renderTemplate(w, r, templates.AddBrewerForm(db.Brewer{}, nil), "Add Brewer")
 }
 
 // DELETE /brewer/{id}
@@ -260,7 +287,7 @@ func (s *server) deleteBrewerHandler(w http.ResponseWriter, r *http.Request) {
 
 	if numBrewers == 0 {
 		// If we just deleted the last brewer, render the no brewers template
-		templates.NoBrewers().Render(r.Context(), w)
+		renderTemplate(w, r, templates.NoBrewers())
 	} else {
 		// Return nothing so the target of the delete request is replaced with nothing, i.e. removed
 		w.WriteHeader(http.StatusNoContent)
@@ -277,7 +304,7 @@ func (s *server) listBrewersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	templates.BrewersList(brewers).Render(r.Context(), w)
+	renderTemplate(w, r, templates.BrewersList(brewers), "Brewers")
 }
 
 // GET /brewer/{id}
@@ -298,7 +325,7 @@ func (s *server) getBrewerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	templates.Brewer(brewer).Render(r.Context(), w)
+	renderTemplate(w, r, templates.Brewer(brewer), brewer.Name)
 }
 
 // POST /user
@@ -328,7 +355,7 @@ func (s *server) addUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(validationErrors) > 0 {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		templates.AddUserForm(db.User{Username: formUsername}, validationErrors).Render(r.Context(), w)
+		renderTemplate(w, r, templates.AddUserForm(db.User{Username: formUsername}, validationErrors))
 		return
 	}
 
@@ -344,12 +371,12 @@ func (s *server) addUserHandler(w http.ResponseWriter, r *http.Request) {
 		PasswordHash: string(passwordHash),
 	})
 
-	templates.AddUserForm(db.User{}, nil).Render(r.Context(), w)
+	renderTemplate(w, r, templates.AddUserForm(db.User{}, nil))
 }
 
 // GET /user/add
 func (s *server) getUserFormHandler(w http.ResponseWriter, r *http.Request) {
-	templates.AddUserForm(db.User{}, nil).Render(r.Context(), w)
+	renderTemplate(w, r, templates.AddUserForm(db.User{}, nil), "Add User")
 }
 
 // DELETE /user/{id}
@@ -381,7 +408,7 @@ func (s *server) deleteUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	if numUsers == 0 {
 		// If we just deleted the last user, render the no users template
-		templates.NoUsers().Render(r.Context(), w)
+		renderTemplate(w, r, templates.NoUsers())
 	} else {
 		// Return nothing so the target of the delete request is replaced with nothing, i.e. removed
 		w.WriteHeader(http.StatusNoContent)
@@ -398,7 +425,7 @@ func (s *server) listUsersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	templates.UsersList(users).Render(r.Context(), w)
+	renderTemplate(w, r, templates.UsersList(users), "Users")
 }
 
 // GET /user/{id}
@@ -419,7 +446,7 @@ func (s *server) getUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	templates.User(user).Render(r.Context(), w)
+	renderTemplate(w, r, templates.User(user), user.Username)
 }
 
 // POST /login
@@ -442,7 +469,7 @@ func (s *server) loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(validationErrors) > 0 {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		templates.LoginForm(validationErrors).Render(r.Context(), w)
+		renderTemplate(w, r, templates.LoginForm(validationErrors))
 		return
 	}
 
@@ -459,7 +486,7 @@ func (s *server) loginHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 		s.logger.Print(errMsg)
-		templates.LoginForm(validationErrors).Render(r.Context(), w)
+		renderTemplate(w, r, templates.LoginForm(validationErrors))
 		return
 	}
 
@@ -468,7 +495,7 @@ func (s *server) loginHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		validationErrors["password"] = "Username or password is incorrect"
 		w.WriteHeader(http.StatusUnauthorized)
-		templates.LoginForm(validationErrors).Render(r.Context(), w)
+		renderTemplate(w, r, templates.LoginForm(validationErrors))
 		return
 	}
 
@@ -480,7 +507,7 @@ func (s *server) loginHandler(w http.ResponseWriter, r *http.Request) {
 		s.logger.Print(errMsg)
 		w.WriteHeader(http.StatusInternalServerError)
 		validationErrors["password"] = "Internal server error"
-		templates.LoginForm(validationErrors).Render(r.Context(), w)
+		renderTemplate(w, r, templates.LoginForm(validationErrors))
 		return
 	}
 
