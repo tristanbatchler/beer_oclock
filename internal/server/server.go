@@ -17,6 +17,7 @@ import (
 	"beer_oclock/internal/db"
 	"beer_oclock/internal/middleware"
 	"beer_oclock/internal/store"
+	"beer_oclock/internal/store/beers"
 	"beer_oclock/internal/store/brewers"
 	"beer_oclock/internal/store/users"
 	"beer_oclock/internal/templates"
@@ -34,11 +35,12 @@ type server struct {
 	httpServer   *http.Server
 	userStore    *users.UserStore
 	brewerStore  *brewers.BrewerStore
+	beerStore    *beers.BeerStore
 	sessionStore *BeerOclockSessionStore
 }
 
 // Creat a new server instance with the given logger and port
-func NewServer(logger *log.Logger, port int, userStore *users.UserStore, brewerStore *brewers.BrewerStore) (*server, error) {
+func NewServer(logger *log.Logger, port int, userStore *users.UserStore, brewerStore *brewers.BrewerStore, beerStore *beers.BeerStore) (*server, error) {
 	if logger == nil {
 		return nil, fmt.Errorf("logger is required")
 	}
@@ -66,6 +68,7 @@ func NewServer(logger *log.Logger, port int, userStore *users.UserStore, brewerS
 		port:         port,
 		userStore:    userStore,
 		brewerStore:  brewerStore,
+		beerStore:    beerStore,
 		sessionStore: NewBeerOclockSessionStore(cookieStore, userStore),
 	}, nil
 }
@@ -111,6 +114,12 @@ func (s *server) Start() error {
 	router.Handle("DELETE /user/{id}", authLoggingMiddleware(http.HandlerFunc(s.deleteUserHandler)))
 	router.Handle("GET /users", authLoggingMiddleware(http.HandlerFunc(s.listUsersHandler)))
 	router.Handle("GET /user/{id}", authLoggingMiddleware(http.HandlerFunc(s.getUserHandler)))
+
+	router.Handle("POST /beer", authLoggingMiddleware(http.HandlerFunc(s.addBeerHandler)))
+	router.Handle("GET /beer/add", authLoggingMiddleware(http.HandlerFunc(s.getBeerFormHandler)))
+	router.Handle("DELETE /beer/{id}", authLoggingMiddleware(http.HandlerFunc(s.deleteBeerHandler)))
+	router.Handle("GET /beers", authLoggingMiddleware(http.HandlerFunc(s.listBeersHandler)))
+	router.Handle("GET /beer/{id}", authLoggingMiddleware(http.HandlerFunc(s.getBeerHandler)))
 
 	// define server
 	s.httpServer = &http.Server{
@@ -176,7 +185,14 @@ func renderTemplate(w http.ResponseWriter, r *http.Request, t templ.Component, t
 func (s *server) homeHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
-	renderTemplate(w, r, templates.Home(), "Home")
+	beers, err := s.beerStore.GetBeers(r.Context())
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when getting beers: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+	renderTemplate(w, r, templates.Home(beers), "Home")
 }
 
 // GET /login
@@ -362,7 +378,10 @@ func (s *server) addUserHandler(w http.ResponseWriter, r *http.Request) {
 	// Hash the password
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(formPassword), bcrypt.DefaultCost)
 	if err != nil {
-		s.logger.Fatalf("Error when hashing password: %s", err)
+		errMsg := fmt.Sprintf("Error when hashing password: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
 	}
 
 	// Add the user to the user store
@@ -447,6 +466,182 @@ func (s *server) getUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	renderTemplate(w, r, templates.User(user), user.Username)
+}
+
+// POST /beer
+func (s *server) addBeerHandler(w http.ResponseWriter, r *http.Request) {
+	s.logger.Printf("Adding beer")
+	if err := r.ParseForm(); err != nil {
+		s.logger.Printf("Error when parsing form: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	formBrewerID := r.FormValue("brewer-id")
+	formName := r.FormValue("name")
+	formStyle := r.FormValue("style")
+	formAbv := r.FormValue("abv")
+	formRating := r.FormValue("rating")
+	formNotes := r.FormValue("notes")
+
+	brewers, err := s.brewerStore.GetBrewers(r.Context())
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when getting brewers: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+
+	validationErrors := make(map[string]string)
+	if formName == "" {
+		validationErrors["name"] = "Name is required"
+	}
+	if formAbv == "" {
+		validationErrors["abv"] = "ABV is required"
+	}
+	if len(validationErrors) > 0 {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		renderTemplate(w, r, templates.AddBeerForm(db.Beer{Name: formName}, brewers, validationErrors))
+		return
+	}
+
+	brewerID, err := strconv.Atoi(formBrewerID)
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when converting brewer id to int: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+
+	rating, err := strconv.ParseFloat(formRating, 64)
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when converting rating to float: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+
+	abv, err := strconv.ParseFloat(formAbv, 64)
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when converting ABV to float: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+
+	beer, err := s.beerStore.AddBeer(r.Context(), db.AddBeerParams{
+		BrewerID: sql.NullInt64{Valid: true, Int64: int64(brewerID)},
+		Name:     formName,
+		Style:    sql.NullString{Valid: true, String: formStyle},
+		Abv:      abv,
+		Rating:   sql.NullFloat64{Valid: true, Float64: rating},
+		Notes:    sql.NullString{Valid: true, String: formNotes},
+	})
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when adding beer: %v", err)
+		s.logger.Print(errMsg)
+
+		validationErrors := make(map[string]string)
+
+		switch err := err.(type) {
+		case store.ErrMissingField:
+			validationErrors[err.Field] = "This field is required"
+			w.WriteHeader(http.StatusUnprocessableEntity)
+		case store.ErrBrewerNotFound:
+			validationErrors["brewer-id"] = fmt.Sprintf("Brewer with id %d not found", err.ID)
+			w.WriteHeader(http.StatusNotFound)
+		default:
+			http.Error(w, errMsg, http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		renderTemplate(w, r, templates.AddBeerForm(db.Beer{Name: formName}, brewers, validationErrors))
+		return
+	}
+
+	renderTemplate(w, r, templates.AddBeerForm(db.Beer{}, brewers, nil))
+	renderTemplate(w, r, templates.Beer(beer))
+}
+
+// GET /beer/add
+func (s *server) getBeerFormHandler(w http.ResponseWriter, r *http.Request) {
+	brewers, err := s.brewerStore.GetBrewers(r.Context())
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when getting brewers: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+
+	renderTemplate(w, r, templates.AddBeerForm(db.Beer{}, brewers, nil), "Add Beer")
+}
+
+// DELETE /beer/{id}
+func (s *server) deleteBeerHandler(w http.ResponseWriter, r *http.Request) {
+	s.logger.Printf("Deleting beer with id: %s", r.PathValue("id"))
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when converting id to int: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+	_, err = s.beerStore.DeleteBeer(r.Context(), int64(id))
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when deleting beer: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+
+	// Check if that was the last beer
+	numBeers, err := s.beerStore.CountBeers(r.Context())
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when counting beers: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+
+	if numBeers == 0 {
+		// If we just deleted the last beer, render the no beers template
+		renderTemplate(w, r, templates.NoBeers())
+	} else {
+		// Return nothing so the target of the delete request is replaced with nothing, i.e. removed
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// GET /beers
+func (s *server) listBeersHandler(w http.ResponseWriter, r *http.Request) {
+	beers, err := s.beerStore.GetBeers(r.Context())
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when getting beers: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+
+	renderTemplate(w, r, templates.BeersList(beers), "Beers")
+}
+
+// GET /beer/{id}
+func (s *server) getBeerHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when converting id to int: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+
+	beer, err := s.beerStore.GetBeer(r.Context(), int64(id))
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when getting beer: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+
+	renderTemplate(w, r, templates.Beer(beer), beer.Name)
 }
 
 // POST /login

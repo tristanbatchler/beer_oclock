@@ -9,3 +9,20 @@ type ErrMissingField struct {
 func (e ErrMissingField) Error() string {
 	return fmt.Sprintf("%s is required", e.Field)
 }
+
+type ErrInvalidField struct {
+	Field  string
+	Reason string
+}
+
+func (e ErrInvalidField) Error() string {
+	return fmt.Sprintf("%s is invalid: %s", e.Field, e.Reason)
+}
+
+type ErrBrewerNotFound struct {
+	ID int64
+}
+
+func (e ErrBrewerNotFound) Error() string {
+	return fmt.Sprintf("brewer with id %d not found", e.ID)
+}

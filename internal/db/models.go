@@ -14,6 +14,8 @@ type Beer struct {
 	BrewerID sql.NullInt64
 	Style    sql.NullString
 	Abv      float64
+	Rating   sql.NullFloat64
+	Notes    sql.NullString
 }
 
 type Brewer struct {

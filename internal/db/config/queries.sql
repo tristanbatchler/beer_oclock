@@ -61,8 +61,8 @@ FROM brewers;
 /* === BEERS === */
 
 -- name: AddBeer :one
-INSERT INTO beers (name, brewer_id, style, abv)
-VALUES (?, ?, ?, ?)
+INSERT INTO beers (name, brewer_id, style, abv, rating, notes)
+VALUES (?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetBeerById :one

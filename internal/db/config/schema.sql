@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS beers (
     brewer_id INTEGER,
     style TEXT,
     abv REAL NOT NULL,
+    rating REAL,
+    notes TEXT,
     FOREIGN KEY (brewer_id) REFERENCES brewers(id) ON DELETE SET NULL,
     CONSTRAINT unique_brewer_beer UNIQUE (name, brewer_id)
 );

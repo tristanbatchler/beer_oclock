@@ -49,7 +49,7 @@ func (bs *BrewerStore) GetBrewer(ctx context.Context, id int64) (db.Brewer, erro
 	brewer, err := bs.queries.GetBrewerById(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return db.Brewer{}, ErrBrewerNotFound{ID: id}
+			return db.Brewer{}, store.ErrBrewerNotFound{ID: id}
 		}
 		bs.logger.Printf("error getting brewer: %v", err)
 		return db.Brewer{}, err
@@ -73,7 +73,7 @@ func (bs *BrewerStore) DeleteBrewer(ctx context.Context, id int64) (db.Brewer, e
 	if err != nil {
 		if sqlErr, ok := err.(*sqlite.Error); ok {
 			if sqlErr.Code() == sqlite3.SQLITE_CONSTRAINT_FOREIGNKEY {
-				return zero, ErrBrewerNotFound{ID: id}
+				return zero, store.ErrBrewerNotFound{ID: id}
 			}
 		}
 		bs.logger.Printf("error deleting brewer: %v", err)

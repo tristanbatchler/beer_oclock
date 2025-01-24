@@ -1,6 +1,8 @@
 package templates
 
-templ Home() {
+import "beer_oclock/internal/db"
+
+templ Home(beers []db.Beer) {
 	<section>
 		<div class="flex justify-center mt-6">
 			<img src="/static/images/logo.png" class="p-2"/>
@@ -9,18 +11,53 @@ templ Home() {
 		</div>
 	</section>
 	<div class="flex justify-center mt-6 space-x-4">
-		<a href="/logout" class="rounded-lg bg-red-500 text-white p-2 mt-4">
+		<a href="/logout" class="rounded-lg bg-red-500 text-white px-4 py-2">
 			Logout
 		</a>
-		<button hx-get="/brewer/add" hx-target="#main-content" class="rounded-lg bg-green-500 text-white p-2 mt-4">
-			Add Brewer
-		</button>
-		<button hx-get="/user/add" hx-target="#main-content" class="rounded-lg bg-green-500 text-white p-2 mt-4">
-			Add User
-		</button>
-		<button hx-get="/beer/add" hx-target="#main-content" class="rounded-lg bg-green-500 text-white p-2 mt-4">
-			Add Beer
-		</button>
 	</div>
-	<div id="main-content" class="mt-6"></div>
+	<!-- Welcome -->
+	<section class="flex flex-col items-center mt-8">
+		<h2 class="text-2xl font-semibold text-white mb-4">Welcome</h2>
+		<p class="text-gray-300 text-center">
+			Welcome to Beer O'Clock! This is a simple web application to track your favourite beers, and how much you've had to drink. Enjoy!
+		</p>
+	</section>
+	<!-- Drink tracker -->
+	<section class="flex flex-col items-center mt-8">
+		<h2 class="text-2xl font-semibold text-white mb-4">Thirsty?</h2>
+		<div class="max-h-96 overflow-y-auto">
+			@BeersList(beers)
+		</div>
+	</section>
+	<!-- Add stuff -->
+	<section class="flex flex-col items-center mt-8">
+		<h2 class="text-2xl font-semibold text-white mb-4">Add stuff</h2>
+		<div class="grid grid-cols-3 gap-4">
+			<a href="#" hx-get="/user/add" hx-target="#main-content" class="rounded-lg bg-green-500 text-white px-4 py-2 text-center">
+				Add User
+			</a>
+			<a href="#" hx-get="/brewer/add" hx-target="#main-content" class="rounded-lg bg-green-500 text-white px-4 py-2 text-center">
+				Add Brewer
+			</a>
+			<a href="#" hx-get="/beer/add" hx-target="#main-content" class="rounded-lg bg-green-500 text-white px-4 py-2 text-center">
+				Add Beer
+			</a>
+		</div>
+	</section>
+	<!-- View stuff -->
+	<section class="flex flex-col items-center mt-8">
+		<h2 class="text-2xl font-semibold text-white mb-4">View stuff</h2>
+		<div class="grid grid-cols-3 gap-4">
+			<a href="#" hx-get="/users" hx-target="#main-content" class="rounded-lg bg-blue-500 text-white px-4 py-2 text-center">
+				View Users
+			</a>
+			<a href="#" hx-get="/brewers" hx-target="#main-content" class="rounded-lg bg-blue-500 text-white px-4 py-2 text-center">
+				View Brewers
+			</a>
+			<a href="#" hx-get="/beers" hx-target="#main-content" class="rounded-lg bg-blue-500 text-white px-4 py-2 text-center">
+				View Beers
+			</a>
+		</div>
+	</section>
+	<div id="main-content" class="mt-10"></div>
 }

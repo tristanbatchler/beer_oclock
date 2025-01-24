@@ -1,0 +1,174 @@
+package templates
+
+import (
+	"beer_oclock/internal/db"
+	"fmt"
+)
+
+templ AddBeerForm(formData db.Beer, brewers []db.Brewer, errors map[string]string) {
+	<form
+		hx-post="/beer"
+		hx-swap="outerHTML"
+		class="rounded-xl border border-gray-700 bg-gray-900 p-6 mt-6 shadow-lg"
+	>
+		<div class="flex flex-col space-y-4">
+			<!-- Brewer Dropdown -->
+			{{ id := "brewer-id" }}
+			<label for={ id } class="text-gray-300 font-semibold">Brewer</label>
+			<select
+				name={ id }
+				class="rounded-lg border border-gray-700 bg-white text-black p-3 focus:outline-none focus:ring-2 focus:ring-orange-600"
+			>
+				<option value="" disabled selected>Select a Brewer</option>
+				for _, brewer := range brewers {
+					<option
+						value={ fmt.Sprintf("%d", brewer.ID) }
+						if brewer.ID == formData.BrewerID.Int64 {
+							selected
+						}
+					>
+						{ brewer.Name }
+					</option>
+				}
+			</select>
+			@maybeValidationError(errors, id)
+		</div>
+		<!-- Name Field -->
+		<div class="flex flex-col space-y-4 mt-4">
+			{{ id = "name" }}
+			<label for={ id } class="text-gray-300 font-semibold">Name</label>
+			<input
+				type="text"
+				name={ id }
+				class="rounded-lg border border-gray-700 bg-white text-black p-3 focus:outline-none focus:ring-2 focus:ring-orange-600"
+				value={ formData.Name }
+				required
+			/>
+			@maybeValidationError(errors, id)
+		</div>
+		<!-- Style Field -->
+		<div class="flex flex-col space-y-4 mt-4">
+			{{ id = "style" }}
+			<label for={ id } class="text-gray-300 font-semibold">Style</label>
+			<input
+				type="text"
+				name={ id }
+				class="rounded-lg border border-gray-700 bg-white text-black p-3 focus:outline-none focus:ring-2 focus:ring-orange-600"
+				value={ formData.Style.String }
+			/>
+			@maybeValidationError(errors, id)
+		</div>
+		<!-- ABV Field -->
+		<div class="flex flex-col space-y-4 mt-4">
+			{{ id = "abv" }}
+			<label for={ id } class="text-gray-300 font-semibold">ABV (%)</label>
+			<input
+				type="number"
+				name={ id }
+				class="rounded-lg border border-gray-700 bg-white text-black p-3 focus:outline-none focus:ring-2 focus:ring-orange-600"
+				step="0.01"
+				min="0"
+				value={ fmt.Sprintf("%.2f", formData.Abv) }
+				required
+			/>
+			@maybeValidationError(errors, id)
+		</div>
+		<!-- Rating Slider -->
+		<div class="flex flex-col space-y-4 mt-4">
+			{{ id = "rating" }}
+			<label for={ id } class="text-gray-300 font-semibold">Rating (0.00 - 10.00)</label>
+			<input
+				type="range"
+				name={ id }
+				class="slider w-full focus:ring-orange-600"
+				step="0.25"
+				min="0"
+				max="10"
+				value={ fmt.Sprintf("%.2f", formData.Rating.Float64) }
+				oninput="this.nextElementSibling.value = this.value"
+			/>
+			<output class="text-gray-300 font-semibold">{ fmt.Sprintf("%.2f", formData.Rating.Float64) }</output>
+			@maybeValidationError(errors, id)
+		</div>
+		<!-- Notes Field -->
+		<div class="flex flex-col space-y-4 mt-4">
+			{{ id = "notes" }}
+			<label for={ id } class="text-gray-300 font-semibold">Notes</label>
+			<textarea
+				name={ id }
+				class="rounded-lg border border-gray-700 bg-white text-black p-3 focus:outline-none focus:ring-2 focus:ring-orange-600"
+				rows="5"
+			>{ formData.Notes.String }</textarea>
+			@maybeValidationError(errors, id)
+		</div>
+		<!-- Submit Button -->
+		<div class="flex items-center mt-6">
+			<button
+				type="submit"
+				class="rounded-lg border border-gray-700 p-3 bg-green-600 text-white hover:bg-green-700 transition duration-300"
+			>
+				Add Beer
+			</button>
+			<img id="spinner" src="/static/images/spinner.svg" class="htmx-indicator p-2 ml-auto filter invert"/>
+		</div>
+	</form>
+}
+
+templ NoBeers() {
+	<div id="no-beers" class="text-gray-300 text-center">
+		<p>No beers found</p>
+	</div>
+}
+
+templ BeersList(beers []db.Beer) {
+	<div class="beers">
+		<article class="rounded-xl border border-gray-700 bg-gray-900 p-6 mt-6 shadow-lg">
+			<ul id="beers-list" class="space-y-4">
+				for _, beer := range beers {
+					@Beer(beer)
+				}
+			</ul>
+			if len(beers) <= 0 {
+				@NoBeers()
+			}
+		</article>
+	</div>
+}
+
+templ Beer(beer db.Beer) {
+	{{ cssSelector := fmt.Sprintf("beer-%d", beer.ID) }}
+	<li id={ cssSelector } hx-swap="outerHTML">
+		<!-- The link to the beer details page -->
+		<a
+			href={ templ.SafeURL(fmt.Sprintf("/beer/%d", beer.ID)) }
+			class="block rounded-lg border border-gray-700 p-4 hover:border-blue-600 bg-gray-800 hover:bg-gray-700 transition duration-300"
+		>
+			<div class="flex items-center">
+				<div>
+					<strong class="font-medium text-white">{ beer.Name }</strong>
+					<p class="mt-1 text-xs font-medium text-gray-300">
+						BrewerID: { fmt.Sprintf("%d",beer.BrewerID.Int64) }
+					</p>
+					<p class="mt-1 text-xs text-gray-300">
+						ABV: { fmt.Sprintf("%.2f", beer.Abv) }% | Rating: { fmt.Sprintf("%.2f", beer.Rating.Float64) }
+					</p>
+					<p class="mt-1 text-xs text-gray-400">
+						{ beer.Notes.String }
+					</p>
+				</div>
+				<img id="spinner" src="/static/images/spinner.svg" class="htmx-indicator p-2 ml-auto filter invert"/>
+			</div>
+		</a>
+		<!-- The delete button -->
+		<button hx-delete={ fmt.Sprintf("/beer/%d", beer.ID) } hx-target={ "#" + cssSelector } class="rounded-lg border border-gray-700 p-3 bg-red-600 text-white hover:bg-red-700 transition duration-300 mt-2">
+			Delete
+		</button>
+	</li>
+}
+
+templ BeerToAppend(beer db.Beer) {
+	<div id="beers-list" hx-swap-oob="beforeend">
+		@Beer(beer)
+	</div>
+	<div id="no-beers" hx-swap-oob="delete"></div>
+}

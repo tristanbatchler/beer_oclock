@@ -11,6 +11,7 @@ import (
 
 	"beer_oclock/internal/db"
 	"beer_oclock/internal/server"
+	"beer_oclock/internal/store/beers"
 	"beer_oclock/internal/store/brewers"
 	"beer_oclock/internal/store/users"
 
@@ -50,7 +51,10 @@ func main() {
 		Location: sql.NullString{Valid: true, String: "Brisbane"},
 	})
 
-	srv, err := server.NewServer(logger, port, userStore, brewerStore)
+	logger.Print("Creating beers store...")
+	beerStore := beers.NewBeerStore(db.New(dbPool), logger)
+
+	srv, err := server.NewServer(logger, port, userStore, brewerStore, beerStore)
 	if err != nil {
 		logger.Fatalf("Error when creating server: %s", err)
 		os.Exit(1)

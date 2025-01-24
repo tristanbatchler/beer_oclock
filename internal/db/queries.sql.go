@@ -12,9 +12,9 @@ import (
 
 const addBeer = `-- name: AddBeer :one
 
-INSERT INTO beers (name, brewer_id, style, abv)
-VALUES (?, ?, ?, ?)
-RETURNING id, name, brewer_id, style, abv
+INSERT INTO beers (name, brewer_id, style, abv, rating, notes)
+VALUES (?, ?, ?, ?, ?, ?)
+RETURNING id, name, brewer_id, style, abv, rating, notes
 `
 
 type AddBeerParams struct {
@@ -22,6 +22,8 @@ type AddBeerParams struct {
 	BrewerID sql.NullInt64
 	Style    sql.NullString
 	Abv      float64
+	Rating   sql.NullFloat64
+	Notes    sql.NullString
 }
 
 // === BEERS ===
@@ -31,6 +33,8 @@ func (q *Queries) AddBeer(ctx context.Context, arg AddBeerParams) (Beer, error) 
 		arg.BrewerID,
 		arg.Style,
 		arg.Abv,
+		arg.Rating,
+		arg.Notes,
 	)
 	var i Beer
 	err := row.Scan(
@@ -39,6 +43,8 @@ func (q *Queries) AddBeer(ctx context.Context, arg AddBeerParams) (Beer, error) 
 		&i.BrewerID,
 		&i.Style,
 		&i.Abv,
+		&i.Rating,
+		&i.Notes,
 	)
 	return i, err
 }
@@ -128,7 +134,7 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 const deleteBeer = `-- name: DeleteBeer :one
 DELETE FROM beers
 WHERE id = ?
-RETURNING id, name, brewer_id, style, abv
+RETURNING id, name, brewer_id, style, abv, rating, notes
 `
 
 func (q *Queries) DeleteBeer(ctx context.Context, id int64) (Beer, error) {
@@ -140,6 +146,8 @@ func (q *Queries) DeleteBeer(ctx context.Context, id int64) (Beer, error) {
 		&i.BrewerID,
 		&i.Style,
 		&i.Abv,
+		&i.Rating,
+		&i.Notes,
 	)
 	return i, err
 }
@@ -177,7 +185,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id int64) (User, error) {
 }
 
 const getBeerById = `-- name: GetBeerById :one
-SELECT id, name, brewer_id, style, abv
+SELECT id, name, brewer_id, style, abv, rating, notes
 FROM beers
 WHERE id = ?
 `
@@ -191,12 +199,14 @@ func (q *Queries) GetBeerById(ctx context.Context, id int64) (Beer, error) {
 		&i.BrewerID,
 		&i.Style,
 		&i.Abv,
+		&i.Rating,
+		&i.Notes,
 	)
 	return i, err
 }
 
 const getBeers = `-- name: GetBeers :many
-SELECT id, name, brewer_id, style, abv
+SELECT id, name, brewer_id, style, abv, rating, notes
 FROM beers
 `
 
@@ -215,6 +225,8 @@ func (q *Queries) GetBeers(ctx context.Context) ([]Beer, error) {
 			&i.BrewerID,
 			&i.Style,
 			&i.Abv,
+			&i.Rating,
+			&i.Notes,
 		); err != nil {
 			return nil, err
 		}
