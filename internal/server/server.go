@@ -504,12 +504,17 @@ func (s *server) addBeerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	brewerID, err := strconv.Atoi(formBrewerID)
-	if err != nil {
-		errMsg := fmt.Sprintf("Error when converting brewer id to int: %v", err)
-		s.logger.Print(errMsg)
-		http.Error(w, errMsg, http.StatusInternalServerError)
-		return
+	maybeBrewerID := sql.NullInt64{}
+
+	if formBrewerID != "" {
+		brewerID, err := strconv.Atoi(formBrewerID)
+		if err != nil {
+			errMsg := fmt.Sprintf("Error when converting brewer id to int: %v", err)
+			s.logger.Print(errMsg)
+			http.Error(w, errMsg, http.StatusInternalServerError)
+			return
+		}
+		maybeBrewerID = sql.NullInt64{Valid: true, Int64: int64(brewerID)}
 	}
 
 	rating, err := strconv.ParseFloat(formRating, 64)
@@ -529,7 +534,7 @@ func (s *server) addBeerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	beer, err := s.beerStore.AddBeer(r.Context(), db.AddBeerParams{
-		BrewerID: sql.NullInt64{Valid: true, Int64: int64(brewerID)},
+		BrewerID: maybeBrewerID,
 		Name:     formName,
 		Style:    sql.NullString{Valid: true, String: formStyle},
 		Abv:      abv,

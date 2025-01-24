@@ -29,9 +29,6 @@ func (bs *BeerStore) AddBeer(ctx context.Context, params db.AddBeerParams) (db.B
 	if params.Name == "" {
 		return zero, store.ErrMissingField{Field: "name"}
 	}
-	if !params.BrewerID.Valid {
-		return zero, store.ErrMissingField{Field: "brewer_id"}
-	}
 	if params.Abv < 0 {
 		return zero, store.ErrInvalidField{Field: "abv", Reason: "must be >= 0"}
 	}

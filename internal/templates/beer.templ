@@ -137,33 +137,45 @@ templ BeersList(beers []db.Beer) {
 
 templ Beer(beer db.Beer) {
 	{{ cssSelector := fmt.Sprintf("beer-%d", beer.ID) }}
-	<li id={ cssSelector } hx-swap="outerHTML">
-		<!-- The link to the beer details page -->
-		<a
-			href={ templ.SafeURL(fmt.Sprintf("/beer/%d", beer.ID)) }
-			class="block rounded-lg border border-gray-700 p-4 hover:border-blue-600 bg-gray-800 hover:bg-gray-700 transition duration-300"
+	<!-- The link to the beer details page -->
+	<a href={ templ.SafeURL(fmt.Sprintf("/beer/%d", beer.ID)) } class="text-white font-bold hover:underline">
+		{ beer.Name }
+	</a>
+	<div class="items-center space-x-4">
+		<!-- The edit button -->
+		<button
+			hx-get={ fmt.Sprintf("/beer/%d/edit", beer.ID) }
+			hx-swap="outerHTML"
+			hx-target="#beers-list"
+			hx-indicator="#spinner"
+			class="rounded-lg border border-gray-700 p-2 bg-blue-600 hover:bg-blue-700 transition duration-300"
 		>
-			<div class="flex items-center">
-				<div>
-					<strong class="font-medium text-white">{ beer.Name }</strong>
-					<p class="mt-1 text-xs font-medium text-gray-300">
-						BrewerID: { fmt.Sprintf("%d",beer.BrewerID.Int64) }
-					</p>
-					<p class="mt-1 text-xs text-gray-300">
-						ABV: { fmt.Sprintf("%.2f", beer.Abv) }% | Rating: { fmt.Sprintf("%.2f", beer.Rating.Float64) }
-					</p>
-					<p class="mt-1 text-xs text-gray-400">
-						{ beer.Notes.String }
-					</p>
-				</div>
-				<img id="spinner" src="/static/images/spinner.svg" class="htmx-indicator p-2 ml-auto filter invert"/>
-			</div>
-		</a>
-		<!-- The delete button -->
-		<button hx-delete={ fmt.Sprintf("/beer/%d", beer.ID) } hx-target={ "#" + cssSelector } class="rounded-lg border border-gray-700 p-3 bg-red-600 text-white hover:bg-red-700 transition duration-300 mt-2">
-			Delete
+			<img src="/static/images/pencil-square.svg" class="w-4 h-4 invert"/>
 		</button>
-	</li>
+		<!-- The delete button -->
+		<button
+			hx-delete={ fmt.Sprintf("/beer/%d", beer.ID) }
+			hx-target={ "#" + cssSelector }
+			hx-indicator="#spinner"
+			class="rounded-lg border border-gray-700 p-2 bg-red-600 hover:bg-red-700 transition duration-300"
+		>
+			<img src="/static/images/trash.svg" class="w-4 h-4 invert"/>
+		</button>
+	</div>
+	<p class="mt-1 text-xs font-medium text-gray-300">
+		if beer.BrewerID.Valid {
+			BrewerID: { fmt.Sprintf("%d",beer.BrewerID.Int64) }
+		} else {
+			BrewerID: N/A
+		}
+	</p>
+	<p class="mt-1 text-xs text-gray-300">
+		ABV: { fmt.Sprintf("%.2f", beer.Abv) }% | Rating: { fmt.Sprintf("%.2f", beer.Rating.Float64) }
+	</p>
+	<p class="mt-1 text-xs text-gray-400">
+		{ beer.Notes.String }
+	</p>
+	<img id="spinner" src="/static/images/spinner.svg" class="htmx-indicator p-2 ml-auto filter invert"/>
 }
 
 templ BeerToAppend(beer db.Beer) {
