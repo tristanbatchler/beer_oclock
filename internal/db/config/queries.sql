@@ -82,3 +82,15 @@ RETURNING *;
 -- name: CountBeers :one
 SELECT COUNT(*)
 FROM beers;
+
+-- name: UpdateBeer :one
+UPDATE beers
+SET 
+    name = coalesce(sqlc.narg('name'), name),
+    brewer_id = coalesce(sqlc.narg('brewer_id'), brewer_id),
+    style = coalesce(sqlc.narg('style'), style),
+    abv = coalesce(sqlc.narg('abv'), abv),
+    rating = coalesce(sqlc.narg('rating'), rating),
+    notes = coalesce(sqlc.narg('notes'), notes)
+WHERE id = sqlc.arg('id')
+RETURNING *;

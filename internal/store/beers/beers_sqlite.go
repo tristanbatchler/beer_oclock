@@ -41,8 +41,11 @@ func (bs *BeerStore) AddBeer(ctx context.Context, params db.AddBeerParams) (db.B
 	beer, err := bs.queries.AddBeer(ctx, params)
 	if err != nil {
 		if sqlErr, ok := err.(*sqlite.Error); ok {
-			if sqlErr.Code() == sqlite3.SQLITE_CONSTRAINT_FOREIGNKEY {
+			switch sqlErr.Code() {
+			case sqlite3.SQLITE_CONSTRAINT_FOREIGNKEY:
 				return zero, store.ErrBrewerNotFound{ID: params.BrewerID.Int64}
+			case sqlite3.SQLITE_CONSTRAINT_UNIQUE:
+				return zero, store.ErrBeerAlreadyExists{Name: params.Name}
 			}
 		}
 		bs.logger.Printf("error adding beer: %v", err)
@@ -99,4 +102,32 @@ func (bs *BeerStore) CountBeers(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	return count, nil
+}
+
+func (bs *BeerStore) UpdateBeer(ctx context.Context, params db.UpdateBeerParams) (db.Beer, error) {
+	zero := db.Beer{}
+
+	if params.Name.String == "" {
+		return zero, store.ErrMissingField{Field: "name"}
+	}
+	if params.Rating.Float64 < 0 || params.Rating.Float64 > 10 {
+		return zero, store.ErrInvalidField{Field: "rating", Reason: "must be between 0 and 10"}
+	}
+
+	beer, err := bs.queries.UpdateBeer(ctx, params)
+	if err != nil {
+		if sqlErr, ok := err.(*sqlite.Error); ok {
+			switch sqlErr.Code() {
+			case sqlite3.SQLITE_CONSTRAINT_FOREIGNKEY:
+				return zero, store.ErrBrewerNotFound{ID: params.BrewerID.Int64}
+			case sqlite3.SQLITE_CONSTRAINT_UNIQUE:
+				return zero, store.ErrBeerAlreadyExists{Name: params.Name.String}
+			}
+		}
+		bs.logger.Printf("error updating beer: %v", err)
+		return zero, err
+	}
+
+	bs.logger.Printf("beer updated: %v", beer)
+	return beer, nil
 }

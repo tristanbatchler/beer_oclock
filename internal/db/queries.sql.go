@@ -364,3 +364,49 @@ func (q *Queries) SetUserLastLogin(ctx context.Context, id int64) error {
 	_, err := q.db.ExecContext(ctx, setUserLastLogin, id)
 	return err
 }
+
+const updateBeer = `-- name: UpdateBeer :one
+UPDATE beers
+SET 
+    name = coalesce(?1, name),
+    brewer_id = coalesce(?2, brewer_id),
+    style = coalesce(?3, style),
+    abv = coalesce(?4, abv),
+    rating = coalesce(?5, rating),
+    notes = coalesce(?6, notes)
+WHERE id = ?7
+RETURNING id, name, brewer_id, style, abv, rating, notes
+`
+
+type UpdateBeerParams struct {
+	Name     sql.NullString
+	BrewerID sql.NullInt64
+	Style    sql.NullString
+	Abv      sql.NullFloat64
+	Rating   sql.NullFloat64
+	Notes    sql.NullString
+	ID       int64
+}
+
+func (q *Queries) UpdateBeer(ctx context.Context, arg UpdateBeerParams) (Beer, error) {
+	row := q.db.QueryRowContext(ctx, updateBeer,
+		arg.Name,
+		arg.BrewerID,
+		arg.Style,
+		arg.Abv,
+		arg.Rating,
+		arg.Notes,
+		arg.ID,
+	)
+	var i Beer
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.BrewerID,
+		&i.Style,
+		&i.Abv,
+		&i.Rating,
+		&i.Notes,
+	)
+	return i, err
+}
