@@ -354,6 +354,43 @@ func (q *Queries) GetUsers(ctx context.Context) ([]User, error) {
 	return items, nil
 }
 
+const searchBeers = `-- name: SearchBeers :many
+SELECT id, name, brewer_id, style, abv, rating, notes
+FROM beers
+WHERE name LIKE '%' || ?1 || '%' OR style LIKE '%' || ?1 || '%' OR notes LIKE '%' || ?1 || '%'
+`
+
+func (q *Queries) SearchBeers(ctx context.Context, query sql.NullString) ([]Beer, error) {
+	rows, err := q.db.QueryContext(ctx, searchBeers, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Beer
+	for rows.Next() {
+		var i Beer
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.BrewerID,
+			&i.Style,
+			&i.Abv,
+			&i.Rating,
+			&i.Notes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setUserLastLogin = `-- name: SetUserLastLogin :exec
 UPDATE users
 SET last_login = datetime()

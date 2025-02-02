@@ -129,18 +129,14 @@ templ NoBeers() {
 }
 
 templ BeersList(beers []db.Beer) {
-	<div class="beers">
-		<article class="rounded-xl border border-gray-700 bg-gray-900 p-6 mt-6 shadow-lg">
-			<ul id="beers-list" class="space-y-4">
-				for _, beer := range beers {
-					@Beer(beer)
-				}
-			</ul>
-			if len(beers) <= 0 {
-				@NoBeers()
-			}
-		</article>
-	</div>
+	<ul id="beers-list" class="space-y-4">
+		for _, beer := range beers {
+			@Beer(beer)
+		}
+	</ul>
+	if len(beers) <= 0 {
+		@NoBeers()
+	}
 }
 
 templ Beer(beer db.Beer) {

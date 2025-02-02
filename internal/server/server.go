@@ -122,6 +122,7 @@ func (s *server) Start() error {
 	router.Handle("GET /beer/{id}", authLoggingMiddleware(http.HandlerFunc(s.getBeerHandler)))
 	router.Handle("GET /beer/{id}/edit", authLoggingMiddleware(http.HandlerFunc(s.getBeerFormHandler)))
 	router.Handle("PUT /beer/{id}", authLoggingMiddleware(http.HandlerFunc(s.updateBeerHandler)))
+	router.Handle("POST /beer/search", authLoggingMiddleware(http.HandlerFunc(s.searchBeersHandler)))
 
 	// define server
 	s.httpServer = &http.Server{
@@ -750,6 +751,26 @@ func (s *server) listBeersHandler(w http.ResponseWriter, r *http.Request) {
 	beers, err := s.beerStore.GetBeers(r.Context())
 	if err != nil {
 		errMsg := fmt.Sprintf("Error when getting beers: %v", err)
+		s.logger.Print(errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
+		return
+	}
+
+	renderTemplate(w, r, templates.BeersList(beers), "Beers")
+}
+
+// POST /beer/search
+func (s *server) searchBeersHandler(w http.ResponseWriter, r *http.Request) {
+	// If the query is empty, just list all beers
+	query := r.FormValue("q")
+	if query == "" {
+		http.Redirect(w, r, "/beers", http.StatusSeeOther)
+		return
+	}
+
+	beers, err := s.beerStore.SearchBeers(r.Context(), sql.NullString{Valid: true, String: query})
+	if err != nil {
+		errMsg := fmt.Sprintf("Error when searching beers: %v", err)
 		s.logger.Print(errMsg)
 		http.Error(w, errMsg, http.StatusInternalServerError)
 		return

@@ -94,3 +94,8 @@ SET
     notes = coalesce(sqlc.narg('notes'), notes)
 WHERE id = sqlc.arg('id')
 RETURNING *;
+
+-- name: SearchBeers :many
+SELECT *
+FROM beers
+WHERE name LIKE '%' || sqlc.arg('query') || '%' OR style LIKE '%' || sqlc.arg('query') || '%' OR notes LIKE '%' || sqlc.arg('query') || '%';

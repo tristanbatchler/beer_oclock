@@ -131,3 +131,12 @@ func (bs *BeerStore) UpdateBeer(ctx context.Context, params db.UpdateBeerParams)
 	bs.logger.Printf("beer updated: %v", beer)
 	return beer, nil
 }
+
+func (bs *BeerStore) SearchBeers(ctx context.Context, query sql.NullString) ([]db.Beer, error) {
+	beers, err := bs.queries.SearchBeers(ctx, query)
+	if err != nil {
+		bs.logger.Printf("error searching beers: %v", err)
+		return nil, err
+	}
+	return beers, nil
+}

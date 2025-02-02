@@ -25,9 +25,22 @@ templ Home(beers []db.Beer) {
 	<!-- Drink tracker -->
 	<section class="flex flex-col items-center mt-8">
 		<h2 class="text-2xl font-semibold text-white mb-4">Thirsty?</h2>
-		<div>
-			@BeersList(beers)
+		<div class="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4">
+			<input
+				name="q"
+				hx-post="/beer/search"
+				hx-trigger="keyup changed delay:100ms,search"
+				hx-target="#beers-list"
+				hx-swap="outerHTML"
+				hx-indicator="#spinner"
+				class="rounded-lg border border-gray-700 bg-white text-black p-3 focus:outline-none focus:ring-2 focus:ring-orange-600"
+				type="search"
+				placeholder="Search for a beer..."
+			/>
 		</div>
+		<article class="w-full rounded-xl border border-gray-700 bg-gray-900 p-6 mt-6 shadow-lg">
+			@BeersList(beers)
+		</article>
 	</section>
 	<!-- Add stuff -->
 	<section class="flex flex-col items-center mt-8">
